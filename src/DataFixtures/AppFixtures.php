@@ -26,6 +26,19 @@ class AppFixtures extends Fixture
         // $manager->persist($product);
         $faker = Factory::create('fr_FR');
 
+        // création d'un admin 
+        $admin = new User();
+        $admin->setFirstName('Jordan')
+            ->setLastName('Berti')
+            ->setEmail('berti@epse.be')
+            ->setPassword($this->passwordHasher->hashPassword($admin,'password'))
+            ->setIntroduction($faker->sentence())
+            ->setPicture('gow2.jpg')
+            ->setDescription('<p>'.join('</p><p>', $faker->paragraphs(3)).'</p>')
+            ->setRoles(['ROLE_ADMIN']);
+        
+        $manager->persist($admin);    
+
         // gestion des utilisateurs
         $users = []; // init un tableau pour récup les user pour les Ad
         $genres = ['male','femelle'];
@@ -35,9 +48,9 @@ class AppFixtures extends Fixture
             $user = new User();
             $genre = $faker->randomElement($genres);
 
-            $picture = 'https://randomuser.me/api/portraits/';
-            $pictureId = $faker->numberBetween(1,99).'.jpg';
-            $picture .= ($genre =='male' ? 'men/' : 'women/').$pictureId;
+            // $picture = 'https://randomuser.me/api/portraits/';
+            // $pictureId = $faker->numberBetween(1,99).'.jpg';
+            // $picture .= ($genre =='male' ? 'men/' : 'women/').$pictureId;
 
             $hash = $this->passwordHasher->hashPassword($user,'password');
 
@@ -47,7 +60,7 @@ class AppFixtures extends Fixture
                 ->setIntroduction($faker->sentence())
                 ->setDescription('<p>'.join('</p><p>', $faker->paragraphs(3)).'</p>')
                 ->setPassword($hash)
-                ->setPicture($picture);
+                ;
 
             $manager->persist($user);
             $users[] = $user;    
