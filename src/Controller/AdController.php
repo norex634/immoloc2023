@@ -135,8 +135,8 @@ class AdController extends AbstractController
     #[Route('/ads/{slug}', name:'ads_show')]
     public function show(string $slug, Ad $ad):Response
     {
-        dump($ad);
-
+        // dump($ad);
+        // dd($ad);
         return $this->render('ad/show.html.twig',[
             'ad' => $ad
         ]);

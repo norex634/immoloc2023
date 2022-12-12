@@ -2,10 +2,10 @@
 
 namespace App\Entity;
 
-use DateTimeImmutable;
+use App\Repository\BookingRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use App\Repository\BookingRepository;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: BookingRepository::class)]
 #[ORM\HasLifecycleCallbacks]
@@ -16,20 +16,22 @@ class Booking
     #[ORM\Column]
     private ?int $id = null;
 
-
-
     #[ORM\ManyToOne(inversedBy: 'bookings')]
     #[ORM\JoinColumn(nullable: false)]
-    private ?user $booker = null;
+    private ?User $booker = null;
 
     #[ORM\ManyToOne(inversedBy: 'bookings')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Ad $ad = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    #[Assert\GreaterThan("today", message:"La date d'arrivée doit être ultérieure à la date d'aujourd'hui", groups:['front'])]
+    #[Assert\Type('datetime')]
     private ?\DateTimeInterface $startDate = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    #[Assert\GreaterThan(propertyPath:"startDate", message:"La date de départ doit être plus éloignée que la date d'arrivée")]
+    #[Assert\Type('datetime')]
     private ?\DateTimeInterface $endDate = null;
 
     #[ORM\Column]
@@ -46,7 +48,7 @@ class Booking
      *
      * @return void
      */
-    #[ORM\PostPersist]
+    #[ORM\PrePersist]
     #[ORM\PreUpdate]
     public function prePersist(): void
     {
@@ -58,28 +60,74 @@ class Booking
         {
             $this->amount = $this->ad->getPrice() * $this->getDuration();
         }
-
     }
+
 
     public function getDuration(): ?int
     {
-        // la méthode diff des objects datetime fais la différence entre 2 dates et renvoie un objet de type DateInterval
+        // la méthode diff des objets datetime fait la différence entre 2 dates et renvoie un objet de type DateInterval
         $diff = $this->endDate->diff($this->startDate);
         return $diff->days;
     }
- 
+
+    /**
+     * Permet de vérifier si les dates sont réservables
+     *
+     * @return boolean|null
+     */
+    public function isBookableDates(): ?bool 
+    {
+        // connaîtres les dates impossibles pour l'annonce (voir dans Ad)
+        $notAvailableDays = $this->ad->getNotAvailableDays();
+        // comparer les dates choisies avec les dates impossible 
+        $bookingDays = $this->getDays();
+        // transfomer des objets dateTime en tableau de chaines de caractères pour les journées (pour faciliter la comparaison)
+        $days = array_map(function($day){
+            return $day->format('Y-m-d');
+        },$bookingDays);
+
+        $notAvailable = array_map(function($day){
+            return $day->format('Y-m-d');
+        },$notAvailableDays);
+
+        foreach($days as $day)
+        {
+            if(array_search($day, $notAvailable) !== false) return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Permet de récup un tableau des journées qui correspondent à ma réservation
+     *
+     * @return array|null
+     */
+    public function getDays(): ?array
+    {
+        $resultat = range(
+            $this->startDate->getTimestamp(),
+            $this->endDate->getTimestamp(),
+            24 * 60 * 60
+        );
+        $days = array_map(function($dayTimestamp){
+            return new \DateTime(date('Y-m-d',$dayTimestamp));
+        },$resultat);
+
+        return $days;
+    }
 
     public function getId(): ?int
     {
         return $this->id;
     }
 
-    public function getBooker(): ?user
+    public function getBooker(): ?User
     {
         return $this->booker;
     }
 
-    public function setBooker(?user $booker): self
+    public function setBooker(?User $booker): self
     {
         $this->booker = $booker;
 

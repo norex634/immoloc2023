@@ -8,6 +8,7 @@ use App\Entity\User;
 use App\Entity\Image;
 use DateTimeImmutable;
 use App\Entity\Booking;
+use App\Entity\Comment;
 use Doctrine\Persistence\ObjectManager;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -99,11 +100,11 @@ class AppFixtures extends Fixture
                 $manager->persist($image);    
             }
 
-            // gestion des réservation 
+            // gestion des réservation
             for($b=1; $b<=rand(0,10); $b++)
             {
                 $booking = new Booking();
-                $createAt = $faker->dateTimeBetween('-6 months','-4 months');
+                $createAt = $faker->dateTimeBetween('-6 months', "-4 months");
                 $createdAt = new DateTimeImmutable($createAt->format('Y-m-d'));
                 $startDate = $faker->dateTimeBetween('-3 months');
                 $duration = rand(3,10);
@@ -114,12 +115,22 @@ class AppFixtures extends Fixture
                 $comment = $faker->paragraph();
 
                 $booking->setBooker($booker)
-                        ->setAd($ad)
-                        ->setStartDate($startDate)
-                        ->setEndDate($endDate)
-                        ->setCreatedAt($createdAt)
-                        ->setAmount($amount)
-                        ->setComment($comment);
+                    ->setAd($ad)
+                    ->setStartDate($startDate)
+                    ->setEndDate($endDate)
+                    ->setCreatedAt($createdAt)
+                    ->setAmount($amount)
+                    ->setcomment($comment);
+
+                $manager->persist($booking);
+                // gestion des commentaires
+                $comment = new Comment(); 
+                $comment->setContent($faker->paragraph())
+                    ->setRating(rand(1,5))
+                    ->setAuthor($booker)
+                    ->setAd($ad);
+                $manager->persist($comment);    
+                
             }
 
         }

@@ -2,14 +2,16 @@
 
 namespace App\Entity;
 
-use App\Repository\AdRepository;
+use App\Entity\User;
+use App\Entity\Comment;
 use Cocur\Slugify\Slugify;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
+use App\Repository\AdRepository;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+use Doctrine\Common\Collections\Collection;
+use Doctrine\Common\Collections\ArrayCollection;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 
 #[ORM\Entity(repositoryClass: AdRepository::class)]
 #[ORM\HasLifecycleCallbacks]
@@ -57,10 +59,14 @@ class Ad
     #[ORM\OneToMany(mappedBy: 'ad', targetEntity: Booking::class)]
     private Collection $bookings;
 
+    #[ORM\OneToMany(mappedBy: 'ad', targetEntity: Comment::class, orphanRemoval: true)]
+    private Collection $comments;
+
     public function __construct()
     {
         $this->images = new ArrayCollection();
         $this->bookings = new ArrayCollection();
+        $this->comments = new ArrayCollection();
     }
 
     #[ORM\PrePersist]
@@ -71,6 +77,66 @@ class Ad
             $slugify = new Slugify();
             $this->slug = $slugify->slugify($this->title);
         }
+    }
+
+    /**
+     * Permet de récup la note d'une annonce
+     *
+     * @return integer
+     */
+    public function getAvgRatings(): int 
+    {
+        // calculer la sommes des notations
+        // fonction array_reduce - permet réduire le tableau à une saule valeur (attention il faut un tableau pas une array Collection, pour la transformation on va utiliser toArray() - 2ème paramètre c'est la foonction pour chaque valeur, le 3ème valeur par défaut)
+        $sum = array_reduce($this->comments->toArray(), function($total, $comment){
+            return $total + $comment->getRating();
+        },0);
+
+        // faire la division pour avoir la moyenne (ternaire)
+        if(count($this->comments) > 0) return $moyennne = round($sum / count($this->comments));
+        return 0;
+    }
+
+    /**
+     * Permet d'obtenir un tableau des jours qui ne sont pas disponibles pour cette annonces
+     *
+     * @return array|null
+     */
+    public function getNotAvailableDays(): ?array 
+    {
+        $notAvailableDays = [];
+        foreach($this->bookings as $booking)
+        {
+            // calculer les jours qui se trouvent entre la date d'arrivée et de départ
+            // la fonction range() de p hp permet de créer un tabelau qui contient chaque étape existance entre deux nombre
+            // $result = range(10,20,2)
+            // réponse: $resulat = [10,12,14,16,18,20];
+            $resultat = range($booking->getStartDate()->getTimestamp(),$booking->getEndDate()->getTimestamp(), 24*60*60);
+            // tableau [10,20,30,40,50]
+            // mapTableau [n+5, tableau]
+            // [15,25,35,45,55]
+            $days = array_map(function($dayTimestamp){
+                return new \DateTime(date('Y-m-d',$dayTimestamp));
+            }, $resultat);
+            $notAvailableDays = array_merge($notAvailableDays, $days);
+        }
+        return $notAvailableDays;
+
+    }
+
+    /**
+     * Permet de récupérer le commentaire d'un auteur par rapport à une annnonce
+     *
+     * @param User $author
+     * @return Comment|null
+     */
+    public function getCommentFromAuthor(User $author): ?Comment
+    {
+        foreach($this->comments as $comment){
+            if($comment->getAuthor() === $author) return $comment;
+        }
+
+        return null;
     }
 
     public function getId(): ?int
@@ -228,6 +294,36 @@ class Ad
             // set the owning side to null (unless already changed)
             if ($booking->getAd() === $this) {
                 $booking->setAd(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Comment>
+     */
+    public function getComments(): Collection
+    {
+        return $this->comments;
+    }
+
+    public function addComment(Comment $comment): self
+    {
+        if (!$this->comments->contains($comment)) {
+            $this->comments->add($comment);
+            $comment->setAd($this);
+        }
+
+        return $this;
+    }
+
+    public function removeComment(Comment $comment): self
+    {
+        if ($this->comments->removeElement($comment)) {
+            // set the owning side to null (unless already changed)
+            if ($comment->getAd() === $this) {
+                $comment->setAd(null);
             }
         }
 
