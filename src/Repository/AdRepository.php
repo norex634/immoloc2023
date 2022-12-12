@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Ad;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\Migrations\Metadata\AvailableMigration;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -38,6 +39,19 @@ class AdRepository extends ServiceEntityRepository
             $this->getEntityManager()->flush();
         }
     }
+
+    public function findBestAds(int $limit):array
+    {
+        return $this->createQueryBuilder('a')
+                    ->select('a as annonce, AVG(c.rating) as avgRatings')
+                    ->join('a.comments','c')
+                    ->groupBy('a')
+                    ->orderBy('avgRatings','DESC')
+                    ->setMaxResults($limit)
+                    ->getQuery()
+                    ->getResult();
+    }
+
 
 //    /**
 //     * @return Ad[] Returns an array of Ad objects
